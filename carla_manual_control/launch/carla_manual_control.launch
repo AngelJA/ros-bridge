@@ -1,6 +1,6 @@
 <!-- -->
 <launch>
-
+  <arg name='host' default=''/>
   <node pkg="carla_manual_control" type="carla_manual_control.py" name="carla_manual_control" output="screen"/>
 
 </launch>
