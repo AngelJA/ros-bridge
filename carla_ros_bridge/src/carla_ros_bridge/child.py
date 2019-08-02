@@ -91,6 +91,9 @@ class Child(Parent):
         """
         self.parent.publish_ros_message(topic, msg, is_latched)
 
+    def write_cyber_message(self, channel, msg):
+        self.parent.write_cyber_message(channel, msg)
+
     def get_param(self, key, default=None):
         """
         Function (override) to query global parameters passed from the outside.

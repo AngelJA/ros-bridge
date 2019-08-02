@@ -259,6 +259,10 @@ class Parent(object):
             "If this error becomes visible the class hierarchy is somehow broken")
 
     @abstractmethod
+    def write_cyber_message(self, channel, msg):
+        raise NotImplementedError
+
+    @abstractmethod
     def get_param(self, key, default=None):
         """
         Pure virtual function to query global parameters passed from the outside.

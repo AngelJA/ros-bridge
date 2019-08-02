@@ -15,6 +15,8 @@ import threading
 import time
 import rospy
 
+from cyber_py import cyber
+
 from rosgraph_msgs.msg import Clock
 from tf2_msgs.msg import TFMessage
 from derived_object_msgs.msg import ObjectArray
@@ -39,6 +41,8 @@ class CarlaRosBridge(Parent):
         :param params: dict of parameters, see settings.yaml
         :type params: dict
         """
+        self.cyber_node = cyber.Node('carla_cyber_client')
+        print(self.cyber_node)
         self.params = params
         super(CarlaRosBridge, self).__init__(
             carla_id=0, carla_world=carla_world, frame_id='/map')
@@ -56,6 +60,8 @@ class CarlaRosBridge(Parent):
         # register callback to update actors
         self.update_lock = threading.Lock()
         self.carla_world.on_tick(self._carla_time_tick)
+
+        self.writers = {}
 
         self.publishers = {}
         self.publishers['clock'] = rospy.Publisher(
@@ -123,6 +129,11 @@ class CarlaRosBridge(Parent):
                 self.publishers[topic] = rospy.Publisher(
                     topic, type(msg), queue_size=10, latch=is_latched)
             self.msgs_to_publish.append((self.publishers[topic], msg))
+
+    def write_cyber_message(self, channel, msg):
+        if channel not in self.writers:
+            self.writers[channel] = self.cyber_node.create_writer(channel, type(msg))
+        self.writers[channel].write(msg)
 
     def get_param(self, key, default=None):
         """

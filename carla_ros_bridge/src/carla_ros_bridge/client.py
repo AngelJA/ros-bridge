@@ -12,6 +12,8 @@ Entry point for carla simulator ROS bridge
 
 import rospy
 
+from cyber_py import cyber
+
 import carla
 
 from carla_ros_bridge.bridge import CarlaRosBridge
@@ -23,6 +25,7 @@ def main():
     main function for carla simulator ROS bridge
     maintaiing the communication client and the CarlaRosBridge objects
     """
+    cyber.init('carla_cyber_client')
     rospy.init_node("carla_client", anonymous=True)
 
     params = rospy.get_param('carla')
