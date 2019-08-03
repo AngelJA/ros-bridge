@@ -15,6 +15,7 @@ import numpy
 import tf
 
 from sensor_msgs.point_cloud2 import create_cloud_xyz32
+from modules.drivers.proto.pointcloud_pb2 import PointXYZIT, PointCloud
 
 from carla_ros_bridge.sensor import Sensor
 import carla_ros_bridge.transforms as trans
@@ -92,3 +93,13 @@ class Lidar(Sensor):
         point_cloud_msg = create_cloud_xyz32(header, lidar_data)
         self.publish_ros_message(
             self.topic_name() + "/point_cloud", point_cloud_msg)
+
+        msg = PointCloud()
+        msg.frame_id = 'velodyne'
+        for lidar_point in lidar_data:
+            cyber_point = PointXYZIT()
+            cyber_point.x = lidar_point[0]
+            cyber_point.y = lidar_point[1]
+            cyber_point.z = lidar_point[2]
+            msg.point.append(cyber_point)
+        self.write_cyber_message('/apollo/sensor/lidar128/compensator/PointCloud2', msg)
