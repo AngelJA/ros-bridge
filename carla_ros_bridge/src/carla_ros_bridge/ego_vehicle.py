@@ -74,13 +74,6 @@ class EgoVehicle(Vehicle):
             self.topic_name() + "/enable_autopilot",
             Bool, self.enable_autopilot_updated)
 
-    def latlon_to_tmerc(self, xy):
-        if not hasattr(self, 'tmerc_proj'):
-            self.tmerc_proj = pyproj.Proj('+lat_0=4.9000000000000000e+1 +lon_0=8.0000000000000000e+0 +proj=tmerc')
-        if not hasattr(self, 'latlon_proj'):
-            self.latlon_proj = pyproj.Proj('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs')
-        return pyproj.transform(self.latlon_proj, self.tmerc_proj, xy[0], xy[1])
-
     def get_marker_color(self):
         """
         Function (override) to return the color for marker messages.
@@ -166,19 +159,17 @@ class EgoVehicle(Vehicle):
                     odometry.pose.pose.orientation.y, \
                     odometry.pose.pose.orientation.z, \
                     odometry.pose.pose.orientation.w]
-            _, _, heading = tf.transformations.euler_from_quaternion(q)
             msg = LocalizationEstimate()
-            x0, y0 = self.latlon_to_tmerc((0, 0))
-            x = odometry.pose.pose.position.x
-            y = odometry.pose.pose.position.y
-            msg.pose.position.x = -x0
-            msg.pose.position.y = -y0
+            msg.pose.position.x = odometry.pose.pose.position.x
+            msg.pose.position.y = odometry.pose.pose.position.y
             msg.pose.position.z = 0
-            # msg.pose.orientation.qx = odometry.pose.pose.orientation.x
-            # msg.pose.orientation.qy = odometry.pose.pose.orientation.y
-            # msg.pose.orientation.qz = odometry.pose.pose.orientation.z
-            # msg.pose.orientation.qw = odometry.pose.pose.orientation.w
-            msg.pose.heading = heading
+            msg.pose.angular_velocity_vrf.x = odometry.twist.twist.angular.x 
+            msg.pose.angular_velocity_vrf.y = odometry.twist.twist.angular.y 
+            msg.pose.angular_velocity_vrf.z = odometry.twist.twist.angular.z 
+            msg.pose.linear_acceleration_vrf.x = 0
+            msg.pose.linear_acceleration_vrf.y = 0
+            msg.pose.linear_acceleration_vrf.z = 0
+            _, _, msg.pose.heading = tf.transformations.euler_from_quaternion(q)
             self.write_cyber_message('/apollo/localization/pose', msg)
 
     def update(self):
