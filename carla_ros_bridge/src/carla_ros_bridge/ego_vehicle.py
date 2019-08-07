@@ -79,7 +79,7 @@ class EgoVehicle(Vehicle):
             Bool, self.enable_autopilot_updated)
 
         cyber.init()
-        self.cyber_control_node = cyber.Node('carla-control-node')
+        self.cyber_control_node = cyber.Node('carla_control_node')
         self.cyber_control_node.create_reader('/apollo/control', ControlCommand, self.cyber_control_command_updated)
 
     def get_marker_color(self):
