@@ -95,6 +95,8 @@ class Lidar(Sensor):
             self.topic_name() + "/point_cloud", point_cloud_msg)
 
         msg = PointCloud()
+        msg.header.CopyFrom(self.parent.get_cyber_header())
+        msg.header.frame_id = 'velodyne'
         msg.frame_id = 'velodyne'
         for lidar_point in lidar_data:
             cyber_point = PointXYZIT()
