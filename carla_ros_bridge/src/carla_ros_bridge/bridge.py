@@ -42,7 +42,6 @@ class CarlaRosBridge(Parent):
         :type params: dict
         """
         self.cyber_node = cyber.Node('carla_cyber_client')
-        print(self.cyber_node)
         self.params = params
         super(CarlaRosBridge, self).__init__(
             carla_id=0, carla_world=carla_world, frame_id='/map')
@@ -229,6 +228,8 @@ class CarlaRosBridge(Parent):
             self.tf_to_publish = []
             self.publish_ros_message(
                 '/carla/objects', ObjectSensor.get_filtered_objectarray(self, None))
+            self.write_cyber_message(
+                '/apollo/perception/obstacles', ObjectSensor.get_filtered_obstaclearray(self, None))
 
     def send_msgs(self):
         """

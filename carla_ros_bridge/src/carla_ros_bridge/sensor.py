@@ -15,6 +15,8 @@ import threading
 
 import rospy
 
+from cyber_py import cyber_time
+
 from geometry_msgs.msg import TransformStamped
 
 from carla_ros_bridge.actor import Actor
@@ -121,6 +123,11 @@ class Sensor(Actor):
         header = super(Sensor, self).get_msg_header(use_parent_frame)
         # use timestamp of current sensor data
         header.stamp = rospy.Time.from_sec(self.current_sensor_data.timestamp)
+        return header
+
+    def get_cyber_header(self, use_parent_frame=True):
+        header = super(sensor, self).get_cyber_header(use_parent_frame)
+        header.timestamp_sec = cyber_time.Time.now().to_sec()
         return header
 
     def _callback_sensor_data(self, carla_sensor_data):

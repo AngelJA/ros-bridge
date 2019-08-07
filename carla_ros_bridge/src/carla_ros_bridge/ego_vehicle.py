@@ -19,7 +19,11 @@ from std_msgs.msg import Bool
 
 import tf
 import pyproj
+from cyber_py import cyber, cyber_time
 from modules.localization.proto.localization_pb2 import LocalizationEstimate
+from modules.localization.proto.gps_pb2 import Gps
+from modules.canbus.proto.chassis_pb2 import Chassis
+from modules.control.proto.control_cmd_pb2 import ControlCommand
 
 from carla import VehicleControl
 
@@ -74,6 +78,10 @@ class EgoVehicle(Vehicle):
             self.topic_name() + "/enable_autopilot",
             Bool, self.enable_autopilot_updated)
 
+        cyber.init()
+        self.cyber_control_node = cyber.Node('carla-control-node')
+        self.cyber_control_node.create_reader('/apollo/control', ControlCommand, self.cyber_control_command_updated)
+
     def get_marker_color(self):
         """
         Function (override) to return the color for marker messages.
@@ -112,6 +120,17 @@ class EgoVehicle(Vehicle):
         vehicle_status.control.gear = self.carla_actor.get_control().gear
         vehicle_status.control.manual_gear_shift = self.carla_actor.get_control().manual_gear_shift
         self.publish_ros_message(self.topic_name() + "/vehicle_status", vehicle_status)
+
+        chassis_msg = Chassis()
+        chassis_msg.engine_started = True
+        chassis_msg.speed_mps = self.get_vehicle_speed_abs(self.carla_actor)
+        chassis_msg.throttle_percentage = self.carla_actor.get_control().throttle * 100.0
+        chassis_msg.brake_percentage = self.carla_actor.get_control().brake * 100.0
+        chassis_msg.steering_percentage = self.carla_actor.get_control().steer * 100.0
+        chassis_msg.parking_brake = self.carla_actor.get_control().hand_brake
+        chassis_msg.header.CopyFrom(self.get_cyber_header())
+        chassis_msg.driving_mode = Chassis.DrivingMode.COMPLETE_AUTO_DRIVE
+        self.write_cyber_message('/apollo/canbus/chassis', chassis_msg)
 
         if not self.vehicle_info_published:
             self.vehicle_info_published = True
@@ -159,18 +178,24 @@ class EgoVehicle(Vehicle):
                     odometry.pose.pose.orientation.y, \
                     odometry.pose.pose.orientation.z, \
                     odometry.pose.pose.orientation.w]
-            msg = LocalizationEstimate()
-            msg.pose.position.x = odometry.pose.pose.position.x
-            msg.pose.position.y = odometry.pose.pose.position.y
-            msg.pose.position.z = 0
-            msg.pose.angular_velocity_vrf.x = odometry.twist.twist.angular.x 
-            msg.pose.angular_velocity_vrf.y = odometry.twist.twist.angular.y 
-            msg.pose.angular_velocity_vrf.z = odometry.twist.twist.angular.z 
-            msg.pose.linear_acceleration_vrf.x = 0
-            msg.pose.linear_acceleration_vrf.y = 0
-            msg.pose.linear_acceleration_vrf.z = 0
-            _, _, msg.pose.heading = tf.transformations.euler_from_quaternion(q)
-            self.write_cyber_message('/apollo/localization/pose', msg)
+            localization_msg = LocalizationEstimate()
+            localization_msg.header.timestamp_sec = cyber_time.Time.now().to_sec()
+            localization_msg.header.frame_id = 'novatel'
+            localization_msg.pose.position.x = odometry.pose.pose.position.x
+            localization_msg.pose.position.y = odometry.pose.pose.position.y
+            localization_msg.pose.position.z = 0
+            localization_msg.pose.linear_velocity.x = odometry.twist.twist.linear.x
+            localization_msg.pose.linear_velocity.y = odometry.twist.twist.linear.y
+            localization_msg.pose.linear_velocity.z = odometry.twist.twist.linear.z
+            localization_msg.pose.angular_velocity_vrf.x = odometry.twist.twist.angular.x 
+            localization_msg.pose.angular_velocity_vrf.y = odometry.twist.twist.angular.y 
+            localization_msg.pose.angular_velocity_vrf.z = odometry.twist.twist.angular.z 
+            # TODO: fix this
+            localization_msg.pose.linear_acceleration_vrf.x = 0
+            localization_msg.pose.linear_acceleration_vrf.y = 0
+            localization_msg.pose.linear_acceleration_vrf.z = 0
+            _, _, localization_msg.pose.heading = tf.transformations.euler_from_quaternion(q)
+            self.write_cyber_message('/apollo/localization/pose', localization_msg)
 
     def update(self):
         """
@@ -199,6 +224,8 @@ class EgoVehicle(Vehicle):
         self.control_subscriber = None
         self.enable_autopilot_subscriber.unregister()
         self.enable_autopilot_subscriber = None
+        self.cyber_control_node = None
+        cyber.shutdown()
         super(EgoVehicle, self).destroy()
 
     def control_command_updated(self, ros_vehicle_control):
@@ -222,6 +249,15 @@ class EgoVehicle(Vehicle):
         vehicle_control.steer = ros_vehicle_control.steer
         vehicle_control.throttle = ros_vehicle_control.throttle
         vehicle_control.reverse = ros_vehicle_control.reverse
+        self.carla_actor.apply_control(vehicle_control)
+
+    def cyber_control_command_updated(self, cyber_vehicle_control):
+        vehicle_control = VehicleControl()
+        vehicle_control.hand_brake = cyber_vehicle_control.parking_brake
+        vehicle_control.brake = cyber_vehicle_control.brake / 100.0
+        vehicle_control.steer = -cyber_vehicle_control.steering_target / 100.0
+        vehicle_control.throttle = cyber_vehicle_control.throttle / 100.0
+        vehicle_control.reverse = cyber_vehicle_control.gear_location == Chassis.GearPosition.GEAR_REVERSE
         self.carla_actor.apply_control(vehicle_control)
 
     def enable_autopilot_updated(self, enable_auto_pilot):

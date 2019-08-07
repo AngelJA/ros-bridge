@@ -14,6 +14,8 @@ from abc import abstractmethod
 
 import threading
 import rospy
+from cyber_py import cyber_time
+from modules.common.proto.header_pb2 import Header as CyberHeader
 from std_msgs.msg import Header
 
 
@@ -216,6 +218,12 @@ class Parent(object):
         """
         header = Header()
         header.stamp = self.get_current_ros_time()
+        header.frame_id = self.get_frame_id()
+        return header
+
+    def get_cyber_header(self):
+        header = CyberHeader()
+        header.timestamp_sec = cyber_time.Time.now().to_sec()
         header.frame_id = self.get_frame_id()
         return header
 

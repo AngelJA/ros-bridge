@@ -9,7 +9,11 @@
 """
 Classes to handle Carla vehicles
 """
+import math
+
 import rospy
+
+from modules.perception.proto.perception_obstacle_pb2 import PerceptionObstacle
 
 from std_msgs.msg import ColorRGBA
 from derived_object_msgs.msg import Object
@@ -166,3 +170,21 @@ class Vehicle(Actor):
             vehicle_object.classification_age = self.classification_age
 
         return vehicle_object
+
+    def get_cyber_obstacle_msg(self):
+        obstacle = PerceptionObstacle()
+        obstacle.id = self.get_global_id()
+        transform = self.carla_actor.get_transform()
+        velocity = self.carla_actor.get_velocity()
+        obstacle.position.x = transform.location.x
+        obstacle.position.y = -transform.location.y
+        obstacle.position.z = transform.location.z
+        obstacle.theta = -math.radians(transform.rotation.yaw)
+        obstacle.velocity.x = velocity.x
+        obstacle.velocity.y = -velocity.y 
+        obstacle.velocity.z = velocity.z 
+        obstacle.length = self.carla_actor.bounding_box.extent.x * 2.0
+        obstacle.width = self.carla_actor.bounding_box.extent.y * 2.0
+        obstacle.height = self.carla_actor.bounding_box.extent.z * 2.0
+        obstacle.type = PerceptionObstacle.Type.VEHICLE
+        return obstacle

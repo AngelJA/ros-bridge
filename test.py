@@ -1,23 +1,29 @@
 import time
-from cyber_py import cyber
-from modules.canbus.proto.chassis_pb2 import Chassis
+from cyber_py import cyber, cyber_time
 from modules.prediction.proto.prediction_obstacle_pb2 import PredictionObstacles
+from modules.transform.proto.transform_pb2 import TransformStamped, TransformStampeds
 
 cyber.init('test')
 node = cyber.Node('test')
-msg = Chassis()
-writer = node.create_writer('/apollo/canbus/chassis', type(msg))
-msg.driving_mode = 1
-msg.speed_mps = 0
-msg.throttle_percentage = 0
-msg.brake_percentage = 0
-msg.engine_started = 1
-msg.gear_location = 0
 
-msg2 = PredictionObstacles()
-writer2 = node.create_writer('/apollo/prediction', type(msg2))
+tfs = TransformStampeds()
+tf_writer = node.create_writer('/tf', type(tfs))
 
 while not cyber.is_shutdown():
+    if len(tfs.transforms):
+        tf = tfs.transforms[0]
+    else:
+        tf = TransformStamped()
+        tfs.transforms.append(tf)
+    tf.header.timestamp_sec = cyber_time.Time.now().to_sec()
+    tf.header.frame_id = 'novatel'
+    tf.child_frame_id = 'world'
+    tf.transform.translation.x = 1
+    tf.transform.translation.y = 0
+    tf.transform.translation.z = 0
+    tf.transform.rotation.qx = 0
+    tf.transform.rotation.qy = 0
+    tf.transform.rotation.qz = 0
+    tf.transform.rotation.qw = 0
     time.sleep(0.2)
-    writer.write(msg)
-    writer2.write(msg2)
+    tf_writer.write(tfs)

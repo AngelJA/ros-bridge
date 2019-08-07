@@ -147,6 +147,12 @@ class Child(Parent):
             header.frame_id = self.parent.get_frame_id()
         return header
 
+    def get_cyber_header(self, use_parent_frame=True):  # pylint: disable=arguments-differ
+        header = super(Child, self).get_cyber_header()
+        if use_parent_frame:
+            header.frame_id = self.parent.get_frame_id()
+        return header
+
     def send_tf_msg(self):
         """
         Helper function to send a ROS tf message of this child
