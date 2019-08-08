@@ -24,6 +24,7 @@ from modules.localization.proto.localization_pb2 import LocalizationEstimate
 from modules.localization.proto.gps_pb2 import Gps
 from modules.canbus.proto.chassis_pb2 import Chassis
 from modules.control.proto.control_cmd_pb2 import ControlCommand
+from modules.planning.proto.planning_pb2 import ADCTrajectory
 
 from carla import VehicleControl
 
@@ -69,6 +70,7 @@ class EgoVehicle(Vehicle):
                                          append_role_name_topic_postfix=False)
 
         self.vehicle_info_published = False
+        self.timestamp_last_update = None
 
         self.control_subscriber = rospy.Subscriber(
             self.topic_name() + "/vehicle_control_cmd",
@@ -79,8 +81,9 @@ class EgoVehicle(Vehicle):
             Bool, self.enable_autopilot_updated)
 
         cyber.init()
-        self.cyber_control_node = cyber.Node('carla_control_node')
-        self.cyber_control_node.create_reader('/apollo/control', ControlCommand, self.cyber_control_command_updated)
+        self.cyber_node = cyber.Node('carla_ego_node')
+        self.cyber_node.create_reader('/apollo/control', ControlCommand, self.cyber_control_command_updated)
+        self.cyber_node.create_reader('/apollo/planning', ADCTrajectory, self.planning_callback)
 
     def get_marker_color(self):
         """
@@ -96,6 +99,9 @@ class EgoVehicle(Vehicle):
         color.g = 255
         color.b = 0
         return color
+
+    def planning_callback(self, msg):
+        self.planned_trajectory = ADCTrajectory().CopyFrom(msg)
 
     def send_vehicle_msgs(self):
         """
@@ -179,7 +185,7 @@ class EgoVehicle(Vehicle):
                     odometry.pose.pose.orientation.z, \
                     odometry.pose.pose.orientation.w]
             localization_msg = LocalizationEstimate()
-            localization_msg.header.timestamp_sec = cyber_time.Time.now().to_sec()
+            localization_msg.header.timestamp_sec = self.parent.timestamp_last_run
             localization_msg.header.frame_id = 'novatel'
             localization_msg.pose.position.x = odometry.pose.pose.position.x
             localization_msg.pose.position.y = odometry.pose.pose.position.y
@@ -208,7 +214,15 @@ class EgoVehicle(Vehicle):
         objects = super(EgoVehicle, self).get_filtered_objectarray(self.carla_actor.id)
         self.publish_ros_message(self.topic_name() + '/objects', objects)
         self.send_vehicle_msgs()
+        self.set_pose()
         super(EgoVehicle, self).update()
+
+    def set_pose(self):
+        timestamp = cyber_time.Time.now().to_sec()
+        if self.timestamp_last_update is None or \
+            timestamp > self.timestamp_last_update:
+            self.timestamp_last_update = self.parent.timestamp_last_run
+            # print('update at %.4f' % self.timestamp_last_update)
 
     def destroy(self):
         """
@@ -224,7 +238,7 @@ class EgoVehicle(Vehicle):
         self.control_subscriber = None
         self.enable_autopilot_subscriber.unregister()
         self.enable_autopilot_subscriber = None
-        self.cyber_control_node = None
+        self.cyber_node = None
         cyber.shutdown()
         super(EgoVehicle, self).destroy()
 
