@@ -26,7 +26,7 @@ from modules.canbus.proto.chassis_pb2 import Chassis
 from modules.control.proto.control_cmd_pb2 import ControlCommand
 from modules.planning.proto.planning_pb2 import ADCTrajectory
 
-from carla import VehicleControl
+from carla import VehicleControl, Vector3D
 
 from carla_ros_bridge.vehicle import Vehicle
 from carla_ros_bridge_msgs.msg import CarlaEgoVehicleInfo  # pylint: disable=no-name-in-module,import-error
@@ -229,11 +229,10 @@ class EgoVehicle(Vehicle):
                 #TODO: linear interpolation here
                 transform.location.x = tp.path_point.x
                 transform.location.y = -tp.path_point.y
-                print('%.3f - %.3f' % (tp.path_point.theta, transform.rotation.yaw))
                 transform.rotation.yaw = -math.degrees(tp.path_point.theta)
                 self.carla_actor.set_transform(transform)
+                self.carla_actor.set_velocity(transform.rotation.get_forward_vector() * tp.v)
                 return
-            # print('update at %.4f' % self.timestamp_last_update)
 
     def destroy(self):
         """
