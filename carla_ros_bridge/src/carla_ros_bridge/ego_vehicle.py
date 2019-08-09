@@ -70,7 +70,7 @@ class EgoVehicle(Vehicle):
                                          append_role_name_topic_postfix=False)
 
         self.vehicle_info_published = False
-        self.timestamp_last_update = None
+        self.planned_trajectory = None
 
         self.control_subscriber = rospy.Subscriber(
             self.topic_name() + "/vehicle_control_cmd",
@@ -101,7 +101,8 @@ class EgoVehicle(Vehicle):
         return color
 
     def planning_callback(self, msg):
-        self.planned_trajectory = ADCTrajectory().CopyFrom(msg)
+        self.planned_trajectory = ADCTrajectory()
+        self.planned_trajectory.CopyFrom(msg)
 
     def send_vehicle_msgs(self):
         """
@@ -185,7 +186,7 @@ class EgoVehicle(Vehicle):
                     odometry.pose.pose.orientation.z, \
                     odometry.pose.pose.orientation.w]
             localization_msg = LocalizationEstimate()
-            localization_msg.header.timestamp_sec = self.parent.timestamp_last_run
+            localization_msg.header.timestamp_sec = cyber_time.Time.now().to_sec()
             localization_msg.header.frame_id = 'novatel'
             localization_msg.pose.position.x = odometry.pose.pose.position.x
             localization_msg.pose.position.y = odometry.pose.pose.position.y
@@ -218,10 +219,20 @@ class EgoVehicle(Vehicle):
         super(EgoVehicle, self).update()
 
     def set_pose(self):
+        if self.planned_trajectory is None:
+            return
         timestamp = cyber_time.Time.now().to_sec()
-        if self.timestamp_last_update is None or \
-            timestamp > self.timestamp_last_update:
-            self.timestamp_last_update = self.parent.timestamp_last_run
+        transform = self.carla_actor.get_transform()
+        dt = timestamp - self.planned_trajectory.header.timestamp_sec
+        for tp in self.planned_trajectory.trajectory_point:
+            if dt < tp.relative_time:
+                #TODO: linear interpolation here
+                transform.location.x = tp.path_point.x
+                transform.location.y = -tp.path_point.y
+                print('%.3f - %.3f' % (tp.path_point.theta, transform.rotation.yaw))
+                transform.rotation.yaw = -math.degrees(tp.path_point.theta)
+                self.carla_actor.set_transform(transform)
+                return
             # print('update at %.4f' % self.timestamp_last_update)
 
     def destroy(self):
